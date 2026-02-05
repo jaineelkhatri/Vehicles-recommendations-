@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Recommendation Assistant</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #chat-container {
+            width: 400px;
+            background: #fff;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        #chat-header {
+            background-color: #007bff;
+            color: #fff;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        #chat-history {
+            height: 400px;
+            padding: 20px;
+            overflow-y: scroll;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background-color: #f9f9f9;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.4;
+            font-size: 0.95em;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background-color: #007bff;
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+
+        .bot-message {
+            align-self: flex-start;
+            background-color: #e9ecef;
+            color: #333;
+            border-bottom-left-radius: 2px;
+        }
+
+        #input-area {
+            padding: 20px;
+            background-color: #fff;
+            border-top: 1px solid #ddd;
+            display: flex;
+        }
+
+        #user-input {
+            flex-grow: 1;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+            font-size: 1em;
+        }
+
+        #send-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin-left: 10px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        #send-btn:hover {
+            background-color: #0056b3;
+        }
+
+        /* Numbered option styling if we want button-like feel later. For now just text. */
+    </style>
+</head>
+<body>
+
+    <div id="chat-container">
+        <div id="chat-header">
+            Vehicle Assistant 🚗
+        </div>
+        <div id="chat-history">
+            <!-- Messages will appear here -->
+        </div>
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="Type your message..." autocomplete="off">
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatHistory = document.getElementById('chat-history');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        let sessionId = localStorage.getItem('chat_session_id'); // Persist simple session
+
+        function appendMessage(text, sender) {
+            const div = document.createElement('div');
+            div.classList.add('message');
+            div.classList.add(sender === 'user' ? 'user-message' : 'bot-message');
+            div.innerHTML = text; // Use innerHTML to render <br> tags
+            chatHistory.appendChild(div);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            if (!message) return;
+
+            // Display user message
+            appendMessage(message, 'user');
+            userInput.value = '';
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message, session_id: sessionId })
+                });
+
+                const data = await response.json();
+                
+                // Store session ID if it's new
+                if (data.session_id) {
+                    sessionId = data.session_id;
+                    localStorage.setItem('chat_session_id', sessionId);
+                }
+
+                // Display bot response
+                appendMessage(data.response, 'bot');
+
+            } catch (error) {
+                appendMessage("Oops! Something went wrong. Is the server running?", 'bot');
+                console.error('Error:', error);
+            }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
+
+        // Initial Greeting
+        // Wait minor delay to feel natural or trigger 'hello' automatically
+        setTimeout(() => {
+             // We can just trigger a "hello" to the backend to get the welcome message or hardcode it.
+             // Let's send a "hello" to "wake up" the bot state.
+             fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'hello', session_id: sessionId })
+             })
+             .then(res => res.json())
+             .then(data => {
+                 if (data.session_id) {
+                    sessionId = data.session_id;
+                    localStorage.setItem('chat_session_id', sessionId);
+                 }
+                 appendMessage(data.response, 'bot');
+             });
+        }, 500);
+
+    </script>
+
+</body>
+</html>
